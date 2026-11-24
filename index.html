@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Nagpur Real Street View Drive</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Rotate to Landscape Prompt (Mobile Portrait) -->
+  <div id="rotate-warning">
+    <div class="rotate-box">
+      <div class="rotate-icon">📱↻</div>
+      <h2>Rotate to Landscape</h2>
+      <p>Turn your phone sideways for the real Nagpur windshield cockpit &amp; controls.</p>
+      <button id="btn-bypass-rotate" class="btn-secondary">Continue Anyway</button>
+    </div>
+  </div>
+
+  <!-- Setup & Launch Screen (Choose Real Street View Source) -->
+  <div id="setup-screen">
+    <div class="setup-card">
+      <div class="setup-badge">100% REAL NAGPUR STREET PHOTOS • UNMAPPED STREETS BLOCKED</div>
+      <h1>NAGPUR <span>STREET VIEW DRIVE</span></h1>
+      <p class="setup-lead">
+        Drive from a first-person car cockpit through <strong>actual 360° street photographs of Nagpur</strong>.
+        Streets without Street View coverage are automatically blocked.
+      </p>
+
+      <div class="provider-tabs">
+        <button class="tab-btn active" data-provider="google">🌍 Google Street View (Best Nagpur)</button>
+        <button class="tab-btn" data-provider="mapillary">📷 Mapillary (Free Token)</button>
+        <button class="tab-btn" data-provider="kartaview">⚡ KartaView (Zero Key)</button>
+      </div>
+
+      <!-- Google Panel -->
+      <div id="panel-google" class="provider-panel">
+        <p class="panel-note">
+          Covers nearly every road in Nagpur (Zero Mile, Sitabuldi, Dharampeth, Futala, Wardha Rd, Sadar, Civil Lines).
+          Google Cloud includes <strong>5,000 free Dynamic Street View loads/month</strong>.
+        </p>
+        <input id="input-google-key" type="password" placeholder="Paste your Google Maps JavaScript API Key..." autocomplete="off" />
+        <small class="help-line">Key is saved only on your device (localStorage). Enable "Maps JavaScript API" in Google Cloud Console.</small>
+      </div>
+
+      <!-- Mapillary Panel -->
+      <div id="panel-mapillary" class="provider-panel hidden">
+        <p class="panel-note">
+          100% free crowdsourced street imagery (no credit card needed). Grab a free Client Token at
+          <code>mapillary.com/dashboard/developers</code>. Coverage is limited to volunteer-mapped Nagpur roads.
+        </p>
+        <input id="input-mapillary-token" type="password" placeholder="Paste your Mapillary Client Token (MLY|...)..." autocomplete="off" />
+      </div>
+
+      <!-- KartaView Panel -->
+      <div id="panel-kartaview" class="provider-panel hidden">
+        <p class="panel-note">
+          Instant play with <strong>no API key required</strong> using public KartaView street-level dashcam sequences in Nagpur.
+          Only streets with uploaded community tracks are drivable.
+        </p>
+      </div>
+
+      <div id="setup-error" class="setup-error hidden"></div>
+
+      <div class="setup-actions">
+        <button id="btn-launch" class="btn-primary">🚗 ENTER COCKPIT &amp; DRIVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL STREET VIEW VIEWPORT (100% Fullscreen Real Nagpur Photography) -->
+  <div id="street-stage">
+    <div id="google-pano" class="viewer-layer hidden"></div>
+    <div id="mapillary-pano" class="viewer-layer hidden"></div>
+    <div id="kartaview-pano" class="viewer-layer hidden">
+      <img id="kv-img-a" class="kv-frame active" alt="Nagpur Real Street View" />
+      <img id="kv-img-b" class="kv-frame" alt="Nagpur Real Street View" />
+    </div>
+    <!-- Subtle Windshield Glass Tint & Vignette -->
+    <div id="windshield-vignette"></div>
+  </div>
+
+  <!-- SLIM TOP HUD BAR (Mobile Landscape Friendly) -->
+  <div id="hud-top">
+    <div class="hud-pill cash-pill">
+      <span class="cash-val">₹<span id="hud-cash">500</span></span>
+      <span id="hud-rank" class="rank-tag">Rookie</span>
+    </div>
+
+    <div class="hud-pill mission-pill">
+      <div class="mission-text-col">
+        <div class="mission-row-1">
+          <span id="hud-mission-title">Free Roam — Nagpur</span>
+          <span id="hud-timer" class="timer-tag hidden">00:00</span>
+        </div>
+        <div id="hud-mission-desc">Drive to an orange mission pin or tap a Nagpur spot.</div>
+      </div>
+      <div class="gps-readout">
+        <span id="hud-gps-arrow">▲</span>
+        <span id="hud-gps-dist">--</span>
+      </div>
+    </div>
+
+    <div class="hud-tools">
+      <select id="spawn-select" class="tool-select" title="Jump to Nagpur Street"></select>
+      <button id="btn-fullscreen" class="tool-btn" title="Fullscreen">⛶</button>
+      <button id="btn-sound" class="tool-btn" title="Toggle Sound">🔊</button>
+      <button id="btn-settings" class="tool-btn" title="Switch Street View Source">⚙️</button>
+    </div>
+  </div>
+
+  <!-- ACCESSIBLE STREET TURNS BAR (Shows ONLY Real Connected Streets with Street View) -->
+  <div id="road-nav-hud">
+    <div id="road-name-chip">📍 Detecting Nagpur street...</div>
+    <div id="turn-pills"></div>
+  </div>
+
+  <!-- DEAD-END / UNMAPPED STREET WARNING -->
+  <div id="blocked-banner" class="hidden">🚫 Street View Not Available Ahead — Road Closed</div>
+
+  <!-- GTA MISSION PASSED / FAILED BANNER -->
+  <div id="mission-banner" class="hidden">
+    <div id="banner-title">MISSION PASSED!</div>
+    <div id="banner-sub">+₹600</div>
+  </div>
+
+  <!-- GTA CORNER MINI-MAP (Crisp Dark Vector Nagpur Map + Real Road Marker) -->
+  <div id="minimap-wrap">
+    <div id="minimap"></div>
+    <div id="minimap-radar-label">NAGPUR GPS</div>
+  </div>
+
+  <!-- REALISTIC FIRST-PERSON CAR DASHBOARD & STEERING WHEEL -->
+  <div id="cockpit-layer">
+    <!-- Subtle Car Bonnet/Hood Edge -->
+    <div class="car-hood"></div>
+
+    <!-- Dashboard Console -->
+    <div class="dashboard-bar">
+      <!-- Steering Wheel (Rotates Live When Steering!) -->
+      <div class="wheel-housing">
+        <svg id="steering-wheel" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="84" fill="none" stroke="#1f2937" stroke-width="20" />
+          <circle cx="100" cy="100" r="84" fill="none" stroke="#374151" stroke-width="12" stroke-dasharray="140 30 90 30 140 98" />
+          <!-- Top Orange Racing Center Marker -->
+          <rect x="94" y="8" width="12" height="18" rx="3" fill="#f97316" />
+          <!-- Spokes -->
+          <path d="M24 96 L82 96 L82 114 L24 114 Z" fill="#111827" />
+          <path d="M118 96 L176 96 L176 114 L118 114 Z" fill="#111827" />
+          <path d="M90 118 L110 118 L114 176 L86 176 Z" fill="#111827" />
+          <!-- Center Horn Pad -->
+          <circle cx="100" cy="103" r="28" fill="#0f172a" stroke="#475569" stroke-width="3" />
+          <text x="100" y="108" text-anchor="middle" fill="#fb923c" font-size="14" font-weight="900" font-family="system-ui">MH31</text>
+        </svg>
+      </div>
+
+      <!-- Digital Instrument Cluster -->
+      <div class="dash-cluster">
+        <div class="dash-gear">
+          <small>GEAR</small>
+          <span id="hud-gear">N</span>
+        </div>
+        <div class="dash-speed">
+          <span id="hud-speed">0</span>
+          <small>KM/H</small>
+        </div>
+        <div class="dash-rpm-wrap">
+          <small>RPM</small>
+          <div class="rpm-track"><div id="hud-rpm-bar"></div></div>
+          <div id="hud-provider-badge" class="provider-mini">STREET VIEW</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOUCH DRIVING CONTROLS (Raised Cleanly Above Bottom Hosting Banners) -->
+  <div id="controls-left">
+    <button id="btn-horn" class="ctrl-btn horn-btn" title="Horn">📯</button>
+    <div class="steer-group">
+      <button id="btn-left" class="ctrl-btn steer-btn">◀</button>
+      <button id="btn-right" class="ctrl-btn steer-btn">▶</button>
+    </div>
+  </div>
+
+  <div id="controls-right">
+    <button id="btn-interact" class="ctrl-btn interact-btn hidden">💬 TALK</button>
+    <div class="pedal-group">
+      <button id="btn-brake" class="ctrl-btn brake-btn">REV</button>
+      <button id="btn-gas" class="ctrl-btn gas-btn">GAS</button>
+    </div>
+  </div>
+
+  <!-- IN-CAR NPC CALL / MISSION DIALOGUE MODAL -->
+  <div id="dialogue-modal" class="hidden">
+    <div class="dialogue-box">
+      <div class="dialogue-header">
+        <span id="dlg-avatar">🕶️</span>
+        <div>
+          <h3 id="dlg-name">NPC Name</h3>
+          <small id="dlg-place">Nagpur</small>
+        </div>
+      </div>
+      <p id="dlg-text"></p>
+      <div id="dlg-actions"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="missions.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
